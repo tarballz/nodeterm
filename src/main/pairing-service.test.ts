@@ -441,6 +441,22 @@ describe('pairing remembers the phone’s relay device id', () => {
     }
   })
 
+  // A contract the phone apps now rely on: iOS and Android PairingOffer.decode refuse a code whose
+  // `hostKey` differs from `relay.hostPublicKeyB64`. A forged code could copy a paired computer's
+  // public relay key (which picks that phone identity and its prior relay token) while sealing the
+  // request to its own key. That refusal is only safe while a real code carries ONE key in both.
+  it('the QR seals to the same key its relay block names (the phones refuse codes where they differ)', async () => {
+    const service = createPairingService(relayDeps())
+    try {
+      const started = await service.start(() => {})
+      const payload = JSON.parse(started.payload) as { hostKey: string; relay: { hostPublicKeyB64: string } }
+      expect(payload.hostKey).toBe(payload.relay.hostPublicKeyB64)
+      expect(payload.hostKey).toBe(publicKeyToB64(hostKeys.publicKey))
+    } finally {
+      service.stop()
+    }
+  })
+
   it('refuses a sealed /pair whose epk is a low-order key (a public-constant shared key), pairing nothing', async () => {
     const service = createPairingService(relayDeps())
     try {
